@@ -53,8 +53,8 @@ func resize[T any](buf []T, n int) []T {
 func (r *WrappedReader[T,U]) Read(p []U) (n int, err error) {
 	r.tbuf = resize(r.tbuf, len(p))
 	n, err = r.r.Read(r.tbuf)
-	for i, t := range r.tbuf[:n] {
-		p[i] = r.f(t)
+	for i, _ := range r.tbuf[:n] {
+		p[i] = r.f(r.tbuf[i])
 	}
 	return n, err
 }
@@ -100,6 +100,7 @@ func (s *SliceReader[T]) Read(p []T) (n int, err error) {
 		}
 	}
 	copy(p, s.slice[s.idx:s.idx+n])
+	s.idx += n
 	return
 }
 
@@ -119,6 +120,7 @@ func (s *SliceBuffer[T]) Read(p []T) (n int, err error) {
 		}
 	}
 	copy(p, s.slice[s.idx:s.idx+n])
+	s.idx += n
 	return
 }
 
@@ -129,4 +131,25 @@ func (s *SliceBuffer[T]) Write(p []T) (n int, err error) {
 
 func (s *SliceBuffer[T]) Slice() []T {
 	return s.slice
+}
+
+type Iterator[T any] struct {
+	r Reader[T]
+	buf []T
+}
+
+func NewIterator[T any](r Reader[T]) *Iterator[T] {
+	i := new(Iterator[T])
+	i.buf = make([]T, 1)
+	i.r = r
+	return i
+}
+
+func (i *Iterator[T]) Next() bool {
+	n, err := i.r.Read(i.buf)
+	return !(n <= 0 && err != nil)
+}
+
+func (i *Iterator[T]) Value() T {
+	return i.buf[0]
 }
