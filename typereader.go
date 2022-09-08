@@ -1,0 +1,145 @@
+package tread
+
+import (
+	"io"
+)
+
+type Reader[T any] interface {
+	Read(p []T) (n int, err error)
+}
+
+type Writer[T any] interface {
+	Write(p []T) (n int, err error)
+}
+
+func Copy[T any](dest Writer[T], src Reader[T]) (n int, err error) {
+	buf := make([]T, 4096)
+	for err == nil {
+		var readn int
+		readn, err = src.Read(buf)
+		dest.Write(buf[:readn])
+		n += readn
+	}
+	if err == io.EOF {
+		err = nil
+	}
+	return
+}
+
+func Transform[T any, U any](dest Writer[T], src Reader[U], tr func(U) T) (n int, err error) {
+	tbuf := make([]T, 4096)
+	ubuf := make([]U, 4096)
+	for err == nil {
+		var readn int
+		readn, err = src.Read(ubuf)
+		for i:=0; i<readn; i++ {
+			tbuf[i] = tr(ubuf[i])
+		}
+		dest.Write(tbuf[:readn])
+		n += readn
+	}
+	if err == io.EOF {
+		err = nil
+	}
+	return
+}
+
+type WrappedReader[T, U any] struct {
+	r Reader[T]
+	tbuf []T
+	f func(T) U
+}
+
+func WrapReader[T, U any](r Reader[T], f func(T) U) WrappedReader[T,U] {
+	return WrappedReader[T,U]{r, []T{}, f}
+}
+
+func resize[T any](buf []T, n int) []T {
+	if cap(buf) < n {
+		newbuf := make([]T, len(buf), n)
+		copy(newbuf, buf)
+		buf = newbuf
+	}
+	return buf[:n]
+}
+
+func (r *WrappedReader[T,U]) Read(p []U) (n int, err error) {
+	r.tbuf = resize(r.tbuf, len(p))
+	n, err = r.r.Read(tbuf)
+	for i, t := range r.tbuf[:n] {
+		p[i] = r.f(t)
+	}
+	return n, err
+}
+
+type WrappedWriter[T, U any] struct {
+	w Writer[U]
+	ubuf []U
+	f func(T) U
+}
+
+func WrapWriter[T, U any](w Writer[U], f func(T) U) WrappedWriter[T, U] {
+	return WrappedWriter[T,U]{w, []U{}, f}
+}
+
+func (w *WrappedWriter[T, U]) Write(p []T) (n int, err error) {
+	r.ubuf = resize(r.ubuf, len(p))
+	for i, t := range p {
+		r.ubuf[i] = r.f(t)
+	}
+	return r.w.Write(r.ubuf)
+}
+
+type SliceReader[T any] struct {
+	slice []T
+	idx int
+}
+
+func MakeReader[T any](s []T) SliceReader[T] {
+	return SliceReader[T]{
+		slice: s,
+		idx: 0,
+	}
+}
+
+func (s *SliceReader[T]) Read(p []T) (n int, err error) {
+	n = len(p)
+	remaining := len(s.slice) - s.idx
+	if remaining <= n {
+		err = io.EOF
+		n = remaining
+		if n < 0 {
+			n = 0
+		}
+	}
+	copy(p, s.slice[s.idx:s.idx+n])
+	return
+}
+
+type SliceBuffer[T any] struct {
+	slice []T
+	idx int
+}
+
+func (s *SliceBuffer[T]) Read(p []T) (n int, err error) {
+	n = len(p)
+	remaining := len(s.slice) - s.idx
+	if remaining <= n {
+		err = io.EOF
+		n = remaining
+		if n < 0 {
+			n = 0
+		}
+	}
+	copy(p, s.slice[s.idx:s.idx+n])
+	return
+}
+
+func (s *SliceBuffer[T]) Write(p []T) (n int, err error) {
+	s.slice = append(s.slice, p...)
+	return len(p), nil
+}
+
+func (s *SliceBuffer[T]) Slice() []T {
+	return s.slice
+}
