@@ -27,21 +27,8 @@ func Copy[T any](dest Writer[T], src Reader[T]) (n int, err error) {
 }
 
 func Transform[T any, U any](dest Writer[T], src Reader[U], tr func(U) T) (n int, err error) {
-	tbuf := make([]T, 4096)
-	ubuf := make([]U, 4096)
-	for err == nil {
-		var readn int
-		readn, err = src.Read(ubuf)
-		for i:=0; i<readn; i++ {
-			tbuf[i] = tr(ubuf[i])
-		}
-		dest.Write(tbuf[:readn])
-		n += readn
-	}
-	if err == io.EOF {
-		err = nil
-	}
-	return
+	tread := WrapReader(src, tr)
+	return Copy(dest, Reader[T](&tread))
 }
 
 type WrappedReader[T, U any] struct {
@@ -65,7 +52,7 @@ func resize[T any](buf []T, n int) []T {
 
 func (r *WrappedReader[T,U]) Read(p []U) (n int, err error) {
 	r.tbuf = resize(r.tbuf, len(p))
-	n, err = r.r.Read(tbuf)
+	n, err = r.r.Read(r.tbuf)
 	for i, t := range r.tbuf[:n] {
 		p[i] = r.f(t)
 	}
@@ -83,11 +70,11 @@ func WrapWriter[T, U any](w Writer[U], f func(T) U) WrappedWriter[T, U] {
 }
 
 func (w *WrappedWriter[T, U]) Write(p []T) (n int, err error) {
-	r.ubuf = resize(r.ubuf, len(p))
+	w.ubuf = resize(w.ubuf, len(p))
 	for i, t := range p {
-		r.ubuf[i] = r.f(t)
+		w.ubuf[i] = w.f(t)
 	}
-	return r.w.Write(r.ubuf)
+	return w.w.Write(w.ubuf)
 }
 
 type SliceReader[T any] struct {
