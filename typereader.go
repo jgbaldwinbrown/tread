@@ -153,3 +153,13 @@ func (i *Iterator[T]) Next() bool {
 func (i *Iterator[T]) Value() T {
 	return i.buf[0]
 }
+
+func (i *Iterator[T]) Read(p []T) (n int, err error) {
+	for n=0; i.Next(); n++ {
+		p[n] = i.Value()
+	}
+	if n < len(p) {
+		err = io.EOF
+	}
+	return
+}
