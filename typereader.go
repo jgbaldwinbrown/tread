@@ -26,6 +26,12 @@ func Copy[T any](dest Writer[T], src Reader[T]) (n int, err error) {
 	return
 }
 
+func Next[T any](r Reader[T]) (T, bool) {
+	buf := [1]T{}
+	n, _ := r.Read(buf[:])
+	return buf[0], n == 1
+}
+
 func Transform[T any, U any](dest Writer[T], src Reader[U], tr func(U) T) (n int, err error) {
 	tread := WrapReader(src, tr)
 	return Copy(dest, Reader[T](&tread))
@@ -131,35 +137,4 @@ func (s *SliceBuffer[T]) Write(p []T) (n int, err error) {
 
 func (s *SliceBuffer[T]) Slice() []T {
 	return s.slice
-}
-
-type Iterator[T any] struct {
-	r Reader[T]
-	buf []T
-}
-
-func NewIterator[T any](r Reader[T]) *Iterator[T] {
-	i := new(Iterator[T])
-	i.buf = make([]T, 1)
-	i.r = r
-	return i
-}
-
-func (i *Iterator[T]) Next() bool {
-	n, err := i.r.Read(i.buf)
-	return !(n <= 0 && err != nil)
-}
-
-func (i *Iterator[T]) Value() T {
-	return i.buf[0]
-}
-
-func (i *Iterator[T]) Read(p []T) (n int, err error) {
-	for n=0; i.Next(); n++ {
-		p[n] = i.Value()
-	}
-	if n < len(p) {
-		err = io.EOF
-	}
-	return
 }
