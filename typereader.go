@@ -12,6 +12,26 @@ type Writer[T any] interface {
 	Write(p []T) (n int, err error)
 }
 
+type Closer[T any] interface {
+	Close() error
+}
+
+type ReadCloser interface {
+	Reader
+	Closer
+}
+
+type WriteCloser interface {
+	Writer
+	Closer
+}
+
+type ReadWriteCloser interface {
+	Reader
+	Writer
+	Closer
+}
+
 func Copy[T any](dest Writer[T], src Reader[T]) (n int, err error) {
 	buf := make([]T, 4096)
 	for err == nil {
