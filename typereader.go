@@ -16,20 +16,20 @@ type Closer[T any] interface {
 	Close() error
 }
 
-type ReadCloser interface {
-	Reader
-	Closer
+type ReadCloser[T any] interface {
+	Reader[T]
+	Closer[T]
 }
 
-type WriteCloser interface {
-	Writer
-	Closer
+type WriteCloser[T any] interface {
+	Writer[T]
+	Closer[T]
 }
 
-type ReadWriteCloser interface {
-	Reader
-	Writer
-	Closer
+type ReadWriteCloser[T any] interface {
+	Reader[T]
+	Writer[T]
+	Closer[T]
 }
 
 func Copy[T any](dest Writer[T], src Reader[T]) (n int, err error) {
