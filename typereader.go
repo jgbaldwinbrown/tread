@@ -158,3 +158,7 @@ func (s *SliceBuffer[T]) Write(p []T) (n int, err error) {
 func (s *SliceBuffer[T]) Slice() []T {
 	return s.slice
 }
+
+func (s *SliceBuffer[T]) ReadFrom(r Reader[T]) (n int, err error) {
+	s.
+}
