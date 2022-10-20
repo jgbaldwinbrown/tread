@@ -1,4 +1,4 @@
-package main
+package tread
 
 type ReaderFrom[T any] interface {
 	ReadFrom(Reader[T]) (int, error)

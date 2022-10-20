@@ -4,6 +4,8 @@ import (
 	"io"
 )
 
+const bufsize int = 4096
+
 type Reader[T any] interface {
 	Read(p []T) (n int, err error)
 }
@@ -33,7 +35,13 @@ type ReadWriteCloser[T any] interface {
 }
 
 func Copy[T any](dest Writer[T], src Reader[T]) (n int, err error) {
-	buf := make([]T, 4096)
+	if wt, ok := src.(WriterTo[T]); ok {
+		return wt.WriteTo(dest)
+	}
+	if rt, ok := dest.(ReaderFrom[T]); ok {
+		return rt.ReadFrom(src)
+	}
+	buf := make([]T, bufsize)
 	for err == nil {
 		var readn int
 		readn, err = src.Read(buf)
@@ -160,5 +168,40 @@ func (s *SliceBuffer[T]) Slice() []T {
 }
 
 func (s *SliceBuffer[T]) ReadFrom(r Reader[T]) (n int, err error) {
-	s.
+	for {
+		buf := s.slice[len(s.slice):cap(s.slice)]
+		nread := 0
+		nread, err = r.Read(buf)
+		s.slice = s.slice[:len(s.slice)+nread]
+		n += nread
+		if err != nil {
+			if err != io.EOF {
+				return n, err
+			}
+			return n, nil
+		}
+
+		if len(s.slice) == cap(s.slice) {
+			newslice := make([]T, len(s.slice), cap(s.slice) * 2 + 1)
+			copy(newslice, s.slice)
+			s.slice = newslice
+		}
+	}
+	return n, nil
+}
+
+func (s *SliceBuffer[T]) WriteTo(w Writer[T]) (n int, err error) {
+	nwritten := 0
+	for s.idx < len(s.slice) {
+		nwritten, err = w.Write(s.slice[s.idx:])
+		s.idx += nwritten
+		n += nwritten
+		if err != nil {
+			if err != io.EOF {
+				return n, err
+			}
+			return n, nil
+		}
+	}
+	return n, nil
 }
