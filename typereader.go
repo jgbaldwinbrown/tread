@@ -123,6 +123,11 @@ func MakeReader[T any](s []T) SliceReader[T] {
 	}
 }
 
+func NewReader[T any](s []T) *SliceReader[T] {
+	r := MakeReader(s)
+	return &r
+}
+
 func (s *SliceReader[T]) Read(p []T) (n int, err error) {
 	n = len(p)
 	remaining := len(s.slice) - s.idx

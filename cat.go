@@ -19,19 +19,22 @@ func MultiReader[T any](rs ...Reader[T]) Reader[T] {
 }
 
 func (m *multi[T]) Read(p []T) (n int, err error) {
-	for len(m.readers) > 0 && n < len(p) {
-		onen, oneerr := m.readers[0].Read(p[n:])
-		n += onen;
-		if (oneerr == io.EOF) {
-			m.readers = m.readers[1:]
-			continue
-		}
-		if (oneerr != nil) {
-			return n, oneerr
-		}
-	}
 	if len(m.readers) <= 0 {
-		return n, io.EOF
+		return 0, io.EOF
 	}
+
+	n, err = m.readers[0].Read(p)
+
+	if (err == io.EOF) {
+		m.readers = m.readers[1:]
+		if len(m.readers) <= 0 {
+			return n, io.EOF
+		}
+		return n, nil
+	}
+	if (err != nil) {
+		return n, err
+	}
+
 	return n, nil
 }
